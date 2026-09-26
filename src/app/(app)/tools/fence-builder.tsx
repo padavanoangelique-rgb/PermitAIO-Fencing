@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Hand,
@@ -145,9 +145,9 @@ function parseFeet(raw: string): number | null {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
-export function FenceBuilder({ orgId }: { orgId: string }) {
-  const [jobNumber, setJobNumber] = useState("");
-  const [job, setJob] = useState<JobLite | null>(null);
+export function FenceBuilder({ orgId, initialJob }: { orgId: string; initialJob?: JobLite }) {
+  const [jobNumber, setJobNumber] = useState(initialJob?.job_number ?? "");
+  const [job, setJob] = useState<JobLite | null>(initialJob ?? null);
   const [savedPlanPath, setSavedPlanPath] = useState<string | null>(null);
   const [project, setProject] = useState<FenceProject>(DEFAULT_FENCE_PROJECT);
   const [survey, setSurvey] = useState<SurveyState | null>(null);
@@ -223,17 +223,7 @@ export function FenceBuilder({ orgId }: { orgId: string }) {
     return (fuzzy.data as JobLite | null) ?? null;
   }
 
-  async function lookupJob() {
-    setMail("");
-    setBusy("Finding job…");
-    const found = await findJob();
-    setBusy("");
-    if (!found) {
-      setJob(null);
-      setSavedPlanPath(null);
-      setMail("No job with that number in PermitAIO. You can still build and download the package.");
-      return;
-    }
+  async function applyFoundJob(found: JobLite) {
     setJob(found);
     setJobNumber(found.job_number);
     setProject((p) => ({
@@ -250,6 +240,28 @@ export function FenceBuilder({ orgId }: { orgId: string }) {
     });
     const latest = (data ?? []).filter((f) => f.name.startsWith("fence-plan-") && f.name.endsWith(".json"))[0];
     setSavedPlanPath(latest ? `${found.id}/${latest.name}` : null);
+  }
+
+  // Embedded directly in a job's tabs (fence-plan/page.tsx) already knows the
+  // job — skip the manual lookup UI and go straight to it, same as Floor
+  // Plans did before this replaced it.
+  useEffect(() => {
+    if (initialJob) void applyFoundJob(initialJob);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function lookupJob() {
+    setMail("");
+    setBusy("Finding job…");
+    const found = await findJob();
+    setBusy("");
+    if (!found) {
+      setJob(null);
+      setSavedPlanPath(null);
+      setMail("No job with that number in PermitAIO. You can still build and download the package.");
+      return;
+    }
+    await applyFoundJob(found);
   }
 
   async function loadSavedPlan() {
@@ -535,9 +547,11 @@ export function FenceBuilder({ orgId }: { orgId: string }) {
   return (
     <div className="mx-auto max-w-5xl space-y-5">
       <div>
-        <Link href="/tools" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Tools
-        </Link>
+        {initialJob ? null : (
+          <Link href="/tools" className="text-sm text-muted-foreground hover:text-foreground">
+            ← Tools
+          </Link>
+        )}
         <h1 className="mt-2 font-heading text-2xl font-semibold tracking-tight">Fence permit package</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           Upload the field survey, trace the fence line around the perimeter, and get the permit path, the exact
@@ -551,24 +565,26 @@ export function FenceBuilder({ orgId }: { orgId: string }) {
           <CardTitle className="text-base">1 · Job &amp; jurisdiction</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div>
-              <Label htmlFor="fence-job">Job number</Label>
-              <Input
-                id="fence-job"
-                className={FIELD}
-                value={jobNumber}
-                onChange={(e) => setJobNumber(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void lookupJob();
-                }}
-                placeholder="92300-1"
-              />
+          {initialJob ? null : (
+            <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              <div>
+                <Label htmlFor="fence-job">Job number</Label>
+                <Input
+                  id="fence-job"
+                  className={FIELD}
+                  value={jobNumber}
+                  onChange={(e) => setJobNumber(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void lookupJob();
+                  }}
+                  placeholder="92300-1"
+                />
+              </div>
+              <Button type="button" variant="outline" onClick={() => void lookupJob()} disabled={!!busy || !jobNumber.trim()}>
+                Find job
+              </Button>
             </div>
-            <Button type="button" variant="outline" onClick={() => void lookupJob()} disabled={!!busy || !jobNumber.trim()}>
-              Find job
-            </Button>
-          </div>
+          )}
           {job ? (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-muted/50 px-3 py-2 text-sm">
               <div>

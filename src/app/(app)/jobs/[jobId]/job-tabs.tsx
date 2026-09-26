@@ -23,7 +23,7 @@ import type { JobTask } from "@/lib/job-tasks/types";
 import type { Teammate } from "@/lib/notifications/compose-actions";
 import {
   LayoutGrid,
-  Ruler,
+  Fence,
   FileText,
   ShieldCheck,
   PackageCheck,
@@ -51,7 +51,7 @@ import {
 type Job = Tables<"jobs">;
 type Activity = Tables<"job_activity">;
 
-// Every TabsContent value below (the "floor-plans" trigger navigates to its
+// Every TabsContent value below (the "fence-plan" trigger navigates to its
 // own page instead of rendering TabsContent, so it's intentionally excluded).
 const TAB_VALUES = [
   "overview",
@@ -167,9 +167,9 @@ return (
     <HardHat className="h-3.5 w-3.5" /> Roofing Details
     </TabsTrigger>
     ) : (
-    <TabsTrigger value="floor-plans" asChild className="flex-none gap-1.5">
-    <Link href={`/jobs/${job.id}/floor-plan`}>
-    <Ruler className="h-3.5 w-3.5" /> Floor Plans
+    <TabsTrigger value="fence-plan" asChild className="flex-none gap-1.5">
+    <Link href={`/jobs/${job.id}/fence-plan`}>
+    <Fence className="h-3.5 w-3.5" /> Fence Plan
     </Link>
     </TabsTrigger>
     )}
